@@ -15,40 +15,22 @@ public class GithubAI : MonoBehaviour
     [SerializeField] private RectTransform sent;
     [SerializeField] private RectTransform received;
 
-    [Header("GitHub API")]
+    [Header("GitHub API Config")]
     [SerializeField] private string apiEndpoint = "https://models.github.ai/inference/chat/completions";
     private string githubToken;
 
     private float height;
-    private List<ChatMessage> chatHistory = new List<ChatMessage>();
+    private List<ChatMessage> messages = new List<ChatMessage>();
     private Dictionary<string, string> envVariables = new Dictionary<string, string>();
 
     [System.Serializable]
     public class ChatMessage
     {
         [JsonProperty("role")]
-        public string role;
-
+        public string Role;
+        
         [JsonProperty("content")]
-        public string content;
-    }
-
-    [System.Serializable]
-    private class GitHubApiResponse
-    {
-        public Choice[] choices;
-
-        [System.Serializable]
-        public class Choice
-        {
-            public Message message;
-
-            [System.Serializable]
-            public class Message
-            {
-                public string content;
-            }
-        }
+        public string Content;
     }
 
     private void Start()
@@ -78,7 +60,6 @@ public class GithubAI : MonoBehaviour
                         if (value.StartsWith("ghp_") && string.IsNullOrEmpty(githubToken))
                         {
                             githubToken = value;
-                            Debug.Log($"[ENV] GitHub token found: {githubToken}");
                         }
                     }
                 }
@@ -86,31 +67,44 @@ public class GithubAI : MonoBehaviour
 
             if (string.IsNullOrEmpty(githubToken))
             {
-                Debug.LogWarning("GitHub token not found in .env");
+                Debug.LogWarning("No GitHub token found in .env.");
                 sendButton.interactable = false;
-                AppendMessage(new ChatMessage { role = "assistant", content = "❌ GitHub token missing from .env." });
+                AppendMessage(new ChatMessage { Role = "assistant", Content = "Error: GitHub token not found." });
             }
         }
         else
         {
             Debug.LogWarning(".env file not found at: " + filePath);
             sendButton.interactable = false;
-            AppendMessage(new ChatMessage { role = "assistant", content = "❌ .env file not found in Assets/" });
+            AppendMessage(new ChatMessage { Role = "assistant", Content = "Error: .env file not found. Add it under Assets/." });
         }
+    }
+
+    private void AppendMessage(ChatMessage message)
+    {
+        chatScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 0);
+
+        var item = Instantiate(message.Role == "user" ? sent : received, chatScroll.content);
+        item.GetChild(0).GetChild(0).GetComponent<Text>().text = message.Content;
+        item.anchoredPosition = new Vector2(0, -height);
+        LayoutRebuilder.ForceRebuildLayoutImmediate(item);
+        height += item.sizeDelta.y;
+        chatScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+        chatScroll.verticalNormalizedPosition = 0;
     }
 
     private void SendReply()
     {
         if (string.IsNullOrWhiteSpace(inputField.text)) return;
 
-        var userMessage = new ChatMessage
+        var newMessage = new ChatMessage
         {
-            role = "user",
-            content = inputField.text
+            Role = "user",
+            Content = inputField.text
         };
 
-        chatHistory.Add(userMessage);
-        AppendMessage(userMessage);
+        AppendMessage(newMessage);
+        messages.Add(newMessage);
 
         inputField.text = "";
         inputField.enabled = false;
@@ -123,15 +117,13 @@ public class GithubAI : MonoBehaviour
     {
         var payload = new
         {
-            model = "gpt-4.1",
             provider = "azureml",
-            publisher = "openai",
-            messages = chatHistory,
-            temperature = 1.0,
-            top_p = 1.0,
+            publisher = "github",
+            model = "gpt-4", // or adjust if GitHub supports another label
+            messages = messages,
+            temperature = 0.7,
             max_tokens = 150
         };
-
 
         string json = JsonConvert.SerializeObject(payload);
         byte[] body = System.Text.Encoding.UTF8.GetBytes(json);
@@ -144,8 +136,6 @@ public class GithubAI : MonoBehaviour
             req.SetRequestHeader("Authorization", $"Bearer {githubToken}");
             req.SetRequestHeader("User-Agent", "Unity-App");
 
-            Debug.Log("Payload: " + json);
-
             yield return req.SendWebRequest();
 
             if (req.result == UnityWebRequest.Result.Success)
@@ -153,19 +143,19 @@ public class GithubAI : MonoBehaviour
                 var response = JsonConvert.DeserializeObject<GitHubApiResponse>(req.downloadHandler.text);
                 var reply = response.choices[0].message.content.Trim();
 
-                var botMessage = new ChatMessage
+                var message = new ChatMessage
                 {
-                    role = "assistant",
-                    content = reply
+                    Role = "assistant",
+                    Content = reply
                 };
 
-                chatHistory.Add(botMessage);
-                AppendMessage(botMessage);
+                messages.Add(message);
+                AppendMessage(message);
             }
             else
             {
                 Debug.LogError($"GitHub API Error: {req.downloadHandler.text}");
-                AppendMessage(new ChatMessage { role = "assistant", content = $"❌ API Error: {req.error}" });
+                AppendMessage(new ChatMessage { Role = "assistant", Content = $"Error: {req.error}" });
             }
 
             inputField.enabled = true;
@@ -173,16 +163,21 @@ public class GithubAI : MonoBehaviour
         }
     }
 
-    private void AppendMessage(ChatMessage message)
+    [System.Serializable]
+    private class GitHubApiResponse
     {
-        chatScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 0);
+        public Choice[] choices;
 
-        var item = Instantiate(message.role == "user" ? sent : received, chatScroll.content);
-        item.GetChild(0).GetChild(0).GetComponent<Text>().text = message.content;
-        item.anchoredPosition = new Vector2(0, -height);
-        LayoutRebuilder.ForceRebuildLayoutImmediate(item);
-        height += item.sizeDelta.y;
-        chatScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
-        chatScroll.verticalNormalizedPosition = 0;
+        [System.Serializable]
+        public class Choice
+        {
+            public Message message;
+
+            [System.Serializable]
+            public class Message
+            {
+                public string content;
+            }
+        }
     }
 }
