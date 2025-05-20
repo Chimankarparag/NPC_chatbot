@@ -3,16 +3,12 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 import requests
+import socket
 
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, resources={
-    r"/api/*": {
-        "origins": ["http://localhost:*", "http://127.0.0.1:*", "file://*"],
-        "methods": ["GET", "POST"]
-    }
-})
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 ENDPOINT = "https://models.github.ai/inference"
 MODEL = "openai/gpt-4.1"
@@ -60,10 +56,21 @@ def handle_chat():
         print("Error:", str(e))
         return jsonify({"error": str(e)}), 500
 
-# if __name__ == '__main__':
-#     app.run(host='127.0.0.1', port=5001, debug=True)
 
-# Add these changes:
+# if __name__ == '__main__':
+#     from waitress import serve
+#     serve(app, host="127.0.0.1", port=5001)
+
+def is_port_in_use(port):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        return s.connect_ex(('127.0.0.1', port)) == 0
+
 if __name__ == '__main__':
-    from waitress import serve
-    serve(app, host="127.0.0.1", port=5001)
+    port = 5001
+    try:
+        from waitress import serve
+        print(f"Starting server on 127.0.0.1:{port}")  # This line is crucial
+        serve(app, host="127.0.0.1", port=port)
+    except Exception as e:
+        print(f"Server failed to start: {str(e)}")
+        raise

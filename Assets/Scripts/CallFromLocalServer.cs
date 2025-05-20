@@ -4,7 +4,7 @@ using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
 
-public class ChatGPT : MonoBehaviour
+public class CallFromLocalServer : MonoBehaviour
 {
     [Header("UI Elements")]
     [SerializeField] InputField inputField;
@@ -12,7 +12,7 @@ public class ChatGPT : MonoBehaviour
     [SerializeField] ScrollRect chatScroll;
     [SerializeField] GameObject userMessagePrefab;
     [SerializeField] GameObject botMessagePrefab;
-    
+
     [Header("Server Config")]
     [SerializeField] string serverURL = "http://127.0.0.1:5001/api/chat";
 
@@ -33,7 +33,7 @@ public class ChatGPT : MonoBehaviour
 
     void OnSendMessage()
     {
-        if (string.IsNullOrWhiteSpace(inputField.text)) return;
+        if ( string.IsNullOrWhiteSpace(inputField.text)) return;
 
         var userMessage = inputField.text;
         AddMessageToUI(userMessage, true);
@@ -45,13 +45,15 @@ public class ChatGPT : MonoBehaviour
 
     IEnumerator SendChatRequest(string userInput)
     {
-        chatHistory.Add(new ChatMessage { 
-            role = "user", 
-            content = userInput 
+        chatHistory.Add(new ChatMessage
+        {
+            role = "user",
+            content = userInput
         });
 
-        var requestData = new MessageRequest { 
-            messages = chatHistory 
+        var requestData = new MessageRequest
+        {
+            messages = chatHistory
         };
 
         string json = JsonUtility.ToJson(requestData);
@@ -69,9 +71,10 @@ public class ChatGPT : MonoBehaviour
             if (req.result == UnityWebRequest.Result.Success)
             {
                 var response = JsonUtility.FromJson<MessageResponse>(req.downloadHandler.text);
-                chatHistory.Add(new ChatMessage { 
-                    role = "assistant", 
-                    content = response.message 
+                chatHistory.Add(new ChatMessage
+                {
+                    role = "assistant",
+                    content = response.message
                 });
                 AddMessageToUI(response.message, false);
             }
@@ -88,10 +91,10 @@ public class ChatGPT : MonoBehaviour
     void AddMessageToUI(string text, bool isUser)
     {
         GameObject message = Instantiate(
-            isUser ? userMessagePrefab : botMessagePrefab, 
+            isUser ? userMessagePrefab : botMessagePrefab,
             chatScroll.content
         );
-        
+
         message.GetComponentInChildren<Text>().text = text;
         StartCoroutine(ScrollToBottom());
     }
@@ -114,4 +117,14 @@ public class ChatGPT : MonoBehaviour
     {
         public string message;
     }
+    // bool ServerReadyCheck()
+    // {
+    //     if (!serverReady)
+    //     {
+    //         AddMessageToUI("Server is not ready yet...", false);
+    //         return false;
+    //     }
+    //     return true;
+
+    // }
 }
