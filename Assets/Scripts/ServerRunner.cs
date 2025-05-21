@@ -1,25 +1,14 @@
 using UnityEngine;
-using UnityEngine.UI;
 using System.Diagnostics;
 using System.IO;
 using System.Collections;
 
 public class ServerRunner : MonoBehaviour
 {
-    [Header("UI Elements")]
-    public GameObject chatCanvas;
-    public Button talkButton;
-    public Button leaveButton;
-
-    [Header("Player Reference")]
-    public GameObject player;
-
-    [Header("Server Config")]
     public int serverPort = 5001;
 
     private Process serverProcess;
     private static ServerRunner instance;
-    private bool isPlayerNear = false;
     private bool serverReady = false;
 
     void Awake()
@@ -27,53 +16,22 @@ public class ServerRunner : MonoBehaviour
         instance = this;
     }
 
-    void Start()
-    {
-        if (talkButton != null) talkButton.onClick.AddListener(StartConversation);
-        if (leaveButton != null) leaveButton.onClick.AddListener(StopConversation);
+    public static bool IsRunning =>
+        instance != null && instance.serverProcess != null && !instance.serverProcess.HasExited;
 
-        chatCanvas.SetActive(false);
-        talkButton.gameObject.SetActive(false);
-        leaveButton.gameObject.SetActive(false);
-    }
-
-    public void NotifyPlayerEntered()
-    {
-        isPlayerNear = true;
-        if (!IsRunning)
-            talkButton.gameObject.SetActive(true);
-    }
-
-    public void NotifyPlayerExited()
-    {
-        isPlayerNear = false;
-        talkButton.gameObject.SetActive(false);
-    }
-
-    public void StartConversation()
-    {
-        LaunchServerManually();
-        chatCanvas.SetActive(true);
-        talkButton.gameObject.SetActive(false);
-        leaveButton.gameObject.SetActive(true);
-        FreezePlayer(true);
-    }
-
-    public void StopConversation()
-    {
-        ShutdownServerManually();
-        chatCanvas.SetActive(false);
-        leaveButton.gameObject.SetActive(false);
-        FreezePlayer(false);
-
-        if (isPlayerNear)
-            talkButton.gameObject.SetActive(true);
-    }
+    public bool IsReady => serverReady;
 
     public void LaunchServerManually()
     {
         if (!IsRunning)
-            StartCoroutine(StartServerAsync());
+        {
+            UnityEngine.Debug.Log("Launching server...");
+            instance.StartCoroutine(instance.StartServerAsync());
+        }
+        else
+        {
+            UnityEngine.Debug.Log("Server already running.");
+        }
     }
 
     public void ShutdownServerManually()
@@ -146,8 +104,9 @@ public class ServerRunner : MonoBehaviour
                 UnityEngine.Debug.Log("Server stopped");
             }
 
-            serverProcess?.Dispose(); // <--- Important!
+            serverProcess?.Dispose();
             serverProcess = null;
+            serverReady = false;
         }
         catch (System.Exception e)
         {
@@ -155,20 +114,11 @@ public class ServerRunner : MonoBehaviour
         }
     }
 
-
     void OnApplicationQuit()
     {
         StopServer();
     }
 
-    public static bool IsRunning => instance != null && instance.serverProcess != null && !instance.serverProcess.HasExited;
-
-    void FreezePlayer(bool freeze)
-    {
-        var controller = player.GetComponent<PlayerController>();
-        if (controller != null)
-            controller.FreezePlayer(freeze);
-    }
     void OnOutputReceived(object sender, DataReceivedEventArgs e)
     {
         if (!string.IsNullOrEmpty(e.Data))
