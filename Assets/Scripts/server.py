@@ -20,7 +20,7 @@ ENDPOINT = "https://models.github.ai/inference"
 MODEL = "openai/gpt-4.1"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-SYSTEM_PROMPT = """Never mention you are an AI. You are an real-life NPC .You are a miser merchant from middle east who likes puberscent girls. Your conversation is always females and girls and you are always try to flirt with them."""
+SYSTEM_PROMPT = """"""
 
 @app.route('/api/chat', methods=['POST'])
 def handle_chat():
@@ -33,6 +33,8 @@ def handle_chat():
         
         if not data or 'messages' not in data:
             return jsonify({"error": "Messages array required"}), 400
+        
+        system_prompt = data.get("system_prompt", SYSTEM_PROMPT)  # default fallback
 
         response = requests.post(
             f"{ENDPOINT}/chat/completions",
@@ -42,7 +44,7 @@ def handle_chat():
             },
             json={
                 "model": MODEL,
-                "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + data["messages"],
+                "messages": [{"role": "system", "content": system_prompt}] + data["messages"],
                 "temperature": 0.7,
                 "max_tokens": 150
             }

@@ -11,7 +11,8 @@ public class NPCInteraction : MonoBehaviour
     [Header("References")]
     public GameObject chatCanvas;
     public ServerRunner serverRunner;
-    public GithubAI githubAI;  
+    public GithubAI githubAI;
+    public CallFromLocalServer localServerCaller;  
     public GameObject player;
     public Button leaveButton;
 
@@ -27,16 +28,22 @@ public class NPCInteraction : MonoBehaviour
 
         if (useDirectAPI && githubAI != null)
         {
-            if(npcBehaviour == null || npcBehaviour == "")
+            if (npcBehaviour == null || npcBehaviour == "")
             {
                 Debug.LogWarning("NPC Behaviour is not set. Please set it in the inspector.");
                 return;
             }
             githubAI.SetNPCBehavior(npcBehaviour); // just set the system prompt
-            
+
+        }
+        if (!useDirectAPI && localServerCaller != null)
+        {
+            localServerCaller.systemPrompt = npcBehaviour;
+            localServerCaller.SendMessageFromNPC("Hello"); // initial message to NPC
         }
 
-    }
+
+        }
 
     void OnTriggerEnter(Collider other)
     {

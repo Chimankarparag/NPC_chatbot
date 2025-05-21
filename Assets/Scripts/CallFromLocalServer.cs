@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using UnityEngine.Networking;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
 
 public class CallFromLocalServer : MonoBehaviour
 {
@@ -15,6 +16,9 @@ public class CallFromLocalServer : MonoBehaviour
 
     [Header("Server Config")]
     [SerializeField] string serverURL = "http://127.0.0.1:5001/api/chat";
+
+    [Header("NPC Prompt")]
+    public string systemPrompt = "You are an NPC."; // Will be set from NPCInteraction
 
     private List<ChatMessage> chatHistory = new List<ChatMessage>();
 
@@ -33,7 +37,7 @@ public class CallFromLocalServer : MonoBehaviour
 
     void OnSendMessage()
     {
-        if ( string.IsNullOrWhiteSpace(inputField.text)) return;
+        if (string.IsNullOrWhiteSpace(inputField.text)) return;
 
         var userMessage = inputField.text;
         AddMessageToUI(userMessage, true);
@@ -41,6 +45,15 @@ public class CallFromLocalServer : MonoBehaviour
         sendButton.interactable = false;
 
         StartCoroutine(SendChatRequest(userMessage));
+    }
+
+
+// this is for initial message to and from NPC
+
+    public void SendMessageFromNPC(string message)
+    {
+        AddMessageToUI(message, true);
+        StartCoroutine(SendChatRequest(message));
     }
 
     IEnumerator SendChatRequest(string userInput)
@@ -51,13 +64,14 @@ public class CallFromLocalServer : MonoBehaviour
             content = userInput
         });
 
-        var requestData = new MessageRequest
+        var requestBody = new MessageRequest
         {
+            system_prompt = systemPrompt,
             messages = chatHistory
         };
 
-        string json = JsonUtility.ToJson(requestData);
-        byte[] body = System.Text.Encoding.UTF8.GetBytes(json);
+        string json = JsonUtility.ToJson(requestBody);
+        byte[] body = Encoding.UTF8.GetBytes(json);
 
         using (UnityWebRequest req = new UnityWebRequest(serverURL, "POST"))
         {
@@ -88,17 +102,7 @@ public class CallFromLocalServer : MonoBehaviour
         sendButton.interactable = true;
     }
 
-    // void AddMessageToUI(string text, bool isUser)
-    // {
-    //     GameObject message = Instantiate(
-    //         isUser ? userMessagePrefab : botMessagePrefab,
-    //         chatScroll.content
-    //     );
-
-    //     message.GetComponentInChildren<Text>().text = text;
-    //     StartCoroutine(ScrollToBottom());
-    // }
-    float cumulativeHeight = 0f;  // Declare this at the class level
+    float cumulativeHeight = 0f;
 
     void AddMessageToUI(string text, bool isUser)
     {
@@ -108,16 +112,14 @@ public class CallFromLocalServer : MonoBehaviour
         Text messageText = message.GetComponentInChildren<Text>();
         messageText.text = text;
 
-        LayoutRebuilder.ForceRebuildLayoutImmediate(message); // Important for sizeDelta
+        LayoutRebuilder.ForceRebuildLayoutImmediate(message);
 
-        // Place it manually by stacking vertically
         message.anchoredPosition = new Vector2(0, -cumulativeHeight);
         cumulativeHeight += message.sizeDelta.y;
 
         chatScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, cumulativeHeight);
         chatScroll.verticalNormalizedPosition = 0;
     }
-
 
     IEnumerator ScrollToBottom()
     {
@@ -129,6 +131,7 @@ public class CallFromLocalServer : MonoBehaviour
     [System.Serializable]
     private class MessageRequest
     {
+        public string system_prompt;
         public List<ChatMessage> messages;
     }
 
@@ -137,14 +140,4 @@ public class CallFromLocalServer : MonoBehaviour
     {
         public string message;
     }
-    // bool ServerReadyCheck()
-    // {
-    //     if (!serverReady)
-    //     {
-    //         AddMessageToUI("Server is not ready yet...", false);
-    //         return false;
-    //     }
-    //     return true;
-
-    // }
 }

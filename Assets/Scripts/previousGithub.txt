@@ -186,3 +186,8 @@ public class GithubAI : MonoBehaviour
         chatScroll.verticalNormalizedPosition = 0;
     }
 }
+
+
+
+
+
