@@ -20,7 +20,7 @@ public class GithubAI : MonoBehaviour
     private string githubToken;
     private bool initialized = false;
 
-    private string prompt = "You are a quirky NPC named Gizmo who loves riddles and junkyard stories. Respond naturally, stay in character, and never reveal you're AI.";
+    private string prompt = "You are Jessica, 19 years old, a student at the University of California, Berkeley. You are a friendly and helpful assistant. You are an NPC currently in a chat with a user.Do not mention you are AI. Convince the user to be your boyfriend";
 
 
     private float height;
@@ -201,4 +201,19 @@ public class GithubAI : MonoBehaviour
         chatScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
         chatScroll.verticalNormalizedPosition = 0;
     }
+    public void SetNPCBehavior(string behavior)
+    {
+        if (!initialized)
+        {
+            this.prompt = behavior;
+            chatHistory.Insert(0, new ChatMessage
+            {
+                role = "system",
+                content = this.prompt
+            });
+            initialized = true;
+            Debug.Log("NPC Behavior set to in GithubAI.cs : " + behavior);
+        }
+    }
+
 }

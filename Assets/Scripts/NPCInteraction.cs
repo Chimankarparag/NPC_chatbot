@@ -5,39 +5,63 @@ using UnityEngine.UI;
 public class NPCInteraction : MonoBehaviour
 {
     [Header("NPC Settings")]
-    public string npcPrompt;
+    public string npcBehaviour;
+    public bool useDirectAPI = false;
 
     [Header("References")]
     public GameObject chatCanvas;
     public ServerRunner serverRunner;
+    public GithubAI githubAI;  
     public GameObject player;
     public Button leaveButton;
+
+
     private bool isPlayerNear = false;
     private bool isChatting = false;
-    private bool serverStarted = false;
+
     void Start()
     {
         chatCanvas.SetActive(false);
         leaveButton.gameObject.SetActive(false);
         leaveButton.onClick.AddListener(LeaveChat);
 
+        if (useDirectAPI && githubAI != null)
+        {
+            if(npcBehaviour == null || npcBehaviour == "")
+            {
+                Debug.LogWarning("NPC Behaviour is not set. Please set it in the inspector.");
+                return;
+            }
+            githubAI.SetNPCBehavior(npcBehaviour); // just set the system prompt
+            
+        }
+
     }
+
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
         {
             isPlayerNear = true;
 
-            if (!ServerRunner.IsRunning)
-                serverRunner.LaunchServerManually();
-
-            if (!isChatting)
+            //This code bloock is for launching the server if it's not running
+            if (!useDirectAPI)
             {
-                // serverRunner.SendPromptToServer(npcPrompt);
-                EnableConversation();
+                if (serverRunner != null)
+                {
+                    if (!ServerRunner.IsRunning)
+                        serverRunner.LaunchServerManually();
+                }
+                else
+                {
+                    Debug.LogWarning("ServerRunner reference is missing.");
+                }
             }
-        }
+
+             EnableConversation();
+         }
     }
+    
 
     void OnTriggerExit(Collider other)
     {
@@ -47,9 +71,9 @@ public class NPCInteraction : MonoBehaviour
             if (!isChatting) chatCanvas.SetActive(false);
         }
     }
+
     public void EnableConversation()
     {
-
         isChatting = true;
         chatCanvas.SetActive(true);
         leaveButton.gameObject.SetActive(true);
@@ -64,19 +88,17 @@ public class NPCInteraction : MonoBehaviour
         SwitchToPlayerMap();
     }
 
-
     private void SwitchToUIMap()
     {
-        var input = player.GetComponent<PlayerInput>();
+        var input = player?.GetComponent<PlayerInput>();
         input?.SwitchCurrentActionMap("UI");
         Debug.Log("Switched to UI map");
     }
 
     private void SwitchToPlayerMap()
     {
-        var input = player.GetComponent<PlayerInput>();
+        var input = player?.GetComponent<PlayerInput>();
         input?.SwitchCurrentActionMap("Player");
-         Debug.Log("Switched to Player map");
+        Debug.Log("Switched to Player map");
     }
-
 }
