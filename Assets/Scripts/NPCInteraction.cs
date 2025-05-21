@@ -38,8 +38,8 @@ public class NPCInteraction : MonoBehaviour
         }
         if (!useDirectAPI && localServerCaller != null)
         {
-            localServerCaller.systemPrompt = npcBehaviour;
-            localServerCaller.SendMessageFromNPC("Hello"); // initial message to NPC
+            // localServerCaller.systemPrompt = npcBehaviour;
+            // localServerCaller.SendMessageFromNPC("Hello"); // initial message to NPC
         }
 
 
