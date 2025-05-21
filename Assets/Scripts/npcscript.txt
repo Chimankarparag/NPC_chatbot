@@ -1,0 +1,72 @@
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.UI;
+
+public class NPCInteraction : MonoBehaviour
+{
+    [Header("NPC Settings")]
+    public string npcPrompt;
+
+    [Header("References")]
+    public GameObject chatCanvas;
+    public ServerRunner serverRunner;
+    public GameObject player;
+    public Button leaveButton;
+    private bool isPlayerNear = false;
+    private bool isChatting = false;
+    private bool serverStarted = false;
+    void Start()
+    {
+        chatCanvas.SetActive(false);
+        
+    }
+    void OnTriggerEnter(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            EnableConversation();
+        }
+    }
+
+    void OnTriggerExit(Collider other)
+    {
+        if (other.CompareTag("Player"))
+        {
+            DisableConversation();
+        }
+    }
+    public void EnableConversation()
+    {
+
+
+        if (!serverStarted)
+        {
+            serverRunner.LaunchServerManually();
+            serverStarted = true;
+        }
+
+        chatCanvas.SetActive(true);
+
+        var playerInput = player.GetComponent<PlayerInput>();
+
+        if (playerInput != null)
+        {
+            playerInput.SwitchCurrentActionMap("UI");
+        }
+        else Debug.Log("PlayerInput not found");
+    }
+
+    public void DisableConversation()
+    {
+
+        chatCanvas.SetActive(false);
+         var playerInput = player.GetComponent<PlayerInput>();
+
+        if (playerInput != null)
+        {
+            playerInput.SwitchCurrentActionMap("Player");
+        }
+        else Debug.Log("PlayerInput not found");
+    }
+
+}
