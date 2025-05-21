@@ -8,7 +8,7 @@ public class NPCInteraction : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            chatManager.PlayerEnteredRange();
+            chatManager.EnableConversation();
         }
     }
 
@@ -16,7 +16,7 @@ public class NPCInteraction : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            chatManager.PlayerExitedRange();
+            chatManager.DisableConversation();
         }
     }
 }

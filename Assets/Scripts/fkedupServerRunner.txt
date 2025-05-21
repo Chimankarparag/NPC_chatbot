@@ -123,7 +123,7 @@ public class ServerRunner : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(e.Data))
         {
-            // UnityEngine.Debug.Log($"[Server STDOUT] {e.Data}");
+            UnityEngine.Debug.Log($"[Server STDOUT] {e.Data}");
             if (e.Data.Contains("Running on")) serverReady = true;
         }
     }
@@ -132,7 +132,7 @@ public class ServerRunner : MonoBehaviour
     {
         if (!string.IsNullOrEmpty(e.Data))
         {
-            // UnityEngine.Debug.LogError($"[Server Error] {e.Data}");
+            UnityEngine.Debug.LogError($"[Server Error] {e.Data}");
         }
     }
 }
