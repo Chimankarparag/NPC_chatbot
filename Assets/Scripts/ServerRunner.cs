@@ -1,68 +1,102 @@
 using UnityEngine;
+using UnityEngine.UI;
 using System.Diagnostics;
 using System.IO;
 using System.Collections;
-using System.Net.Sockets;
 
 public class ServerRunner : MonoBehaviour
 {
+    [Header("UI Elements")]
+    public GameObject chatCanvas;
+    public Button talkButton;
+    public Button leaveButton;
+
+    [Header("Player Reference")]
+    public GameObject player;
+
     [Header("Server Config")]
-    public bool autoStartServer = true;
-    public float serverStartDelay = 2f;
     public int serverPort = 5001;
-    public float timeoutSeconds = 10f;
 
     private Process serverProcess;
-    private bool serverReady;
-    private bool serverStartFailed;
+    private static ServerRunner instance;
+    private bool isPlayerNear = false;
+    private bool serverReady = false;
+
+    void Awake()
+    {
+        instance = this;
+    }
 
     void Start()
     {
-        if (autoStartServer)
-        {
-            StartCoroutine(ServerStartRoutine());
-        }
+        if (talkButton != null) talkButton.onClick.AddListener(StartConversation);
+        if (leaveButton != null) leaveButton.onClick.AddListener(StopConversation);
+
+        chatCanvas.SetActive(false);
+        talkButton.gameObject.SetActive(false);
+        leaveButton.gameObject.SetActive(false);
     }
 
-    IEnumerator ServerStartRoutine()
+    public void NotifyPlayerEntered()
     {
-        yield return new WaitForSeconds(serverStartDelay);
-        yield return StartCoroutine(StartServerAsync());
+        isPlayerNear = true;
+        if (!IsRunning)
+            talkButton.gameObject.SetActive(true);
+    }
+
+    public void NotifyPlayerExited()
+    {
+        isPlayerNear = false;
+        talkButton.gameObject.SetActive(false);
+    }
+
+    public void StartConversation()
+    {
+        LaunchServerManually();
+        chatCanvas.SetActive(true);
+        talkButton.gameObject.SetActive(false);
+        leaveButton.gameObject.SetActive(true);
+        FreezePlayer(true);
+    }
+
+    public void StopConversation()
+    {
+        ShutdownServerManually();
+        chatCanvas.SetActive(false);
+        leaveButton.gameObject.SetActive(false);
+        FreezePlayer(false);
+
+        if (isPlayerNear)
+            talkButton.gameObject.SetActive(true);
+    }
+
+    public void LaunchServerManually()
+    {
+        if (!IsRunning)
+            StartCoroutine(StartServerAsync());
+    }
+
+    public void ShutdownServerManually()
+    {
+        StopServer();
     }
 
     IEnumerator StartServerAsync()
     {
-        string serverPath = "";
-        string pythonExec = "";
-        bool initializationError = false;
+        string serverPath = Path.Combine(Application.dataPath, "Scripts", "server.py");
+        string pythonExec = GetPythonPath();
 
-        try
+        if (!File.Exists(serverPath))
         {
-            serverPath = Path.Combine(Application.streamingAssetsPath, "server.py");
-            pythonExec = GetPythonPath();
-
-            if (!File.Exists(serverPath))
-            {
-                UnityEngine.Debug.LogError($"Server script missing at: {serverPath}");
-                initializationError = true;
-                yield break;
-            }
-        }
-        catch (System.Exception e)
-        {
-            UnityEngine.Debug.LogError($"Initialization error: {e.Message}");
-            initializationError = true;
+            UnityEngine.Debug.LogError($"Server script missing at: {serverPath}");
             yield break;
         }
 
-        if (initializationError) yield break;
-
-        // Server process setup
         var psi = new ProcessStartInfo
         {
             FileName = pythonExec,
             Arguments = $"\"{serverPath}\"",
-            WorkingDirectory = Application.streamingAssetsPath,
+            WorkingDirectory = Path.Combine(Application.dataPath, "Scripts"),
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -72,106 +106,30 @@ public class ServerRunner : MonoBehaviour
         try
         {
             serverProcess = new Process { StartInfo = psi };
-            
-            serverProcess.OutputDataReceived += (sender, e) => 
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    UnityEngine.Debug.Log($"[Server] {e.Data}");
-                    if (e.Data.Contains("Starting server")) serverReady = true;
-                }
-            };
-
-            serverProcess.ErrorDataReceived += (sender, e) => 
-            {
-                if (!string.IsNullOrEmpty(e.Data))
-                {
-                    UnityEngine.Debug.LogError($"[Server Error] {e.Data}");
-                    serverStartFailed = true;
-                }
-            };
+            serverProcess.OutputDataReceived += OnOutputReceived;
+            serverProcess.ErrorDataReceived += OnErrorReceived;
 
             serverProcess.Start();
             serverProcess.BeginOutputReadLine();
             serverProcess.BeginErrorReadLine();
-            
-            UnityEngine.Debug.Log($"Server process started (PID: {serverProcess.Id})");
+            UnityEngine.Debug.Log($"Server started (PID: {serverProcess.Id})");
         }
         catch (System.Exception e)
         {
             UnityEngine.Debug.LogError($"Process start failed: {e.Message}");
-            yield break;
-        }
-
-        // Wait for server readiness with timeout
-        float startTime = Time.time;
-        bool portOpen = false;
-        
-        while (Time.time - startTime < timeoutSeconds && !serverStartFailed)
-        {
-            portOpen = IsPortOpen();
-            
-            if (serverReady && portOpen)
-            {
-                UnityEngine.Debug.Log("Server ready - accepting connections");
-                yield break;
-            }
-            
-            yield return null; // Wait one frame
-        }
-
-        if (!serverReady || !portOpen)
-        {
-            UnityEngine.Debug.LogError($"Server failed to start within {timeoutSeconds} seconds");
-            StopServer();
-        }
-    }
-
-    bool IsPortOpen()
-    {
-        try
-        {
-            using (var client = new TcpClient())
-            {
-                var result = client.BeginConnect("127.0.0.1", serverPort, null, null);
-                bool success = result.AsyncWaitHandle.WaitOne(500);
-                client.EndConnect(result);
-                return success;
-            }
-        }
-        catch
-        {
-            return false;
         }
     }
 
     string GetPythonPath()
     {
-        #if UNITY_EDITOR_OSX
-                string[] paths = {
-                    "/usr/bin/python3",
-                    "/opt/homebrew/bin/python3",
-                    "/usr/local/bin/python3",
-                    "python3"
-                };
-
-                foreach (var path in paths)
-                {
-                    if (File.Exists(path))
-                    {
-                        UnityEngine.Debug.Log($"Using Python at: {path}");
-                        return path;
-                    }
-                }
-                return "python3";
-        #else
-                return "python";
-        #endif
-    }
-
-    void OnApplicationQuit()
-    {
-        StopServer();
+#if UNITY_EDITOR_OSX
+        string[] paths = { "/usr/bin/python3", "/opt/homebrew/bin/python3", "/usr/local/bin/python3", "python3" };
+        foreach (var path in paths)
+            if (File.Exists(path)) return path;
+        return "python3";
+#else
+        return "python";
+#endif
     }
 
     void StopServer()
@@ -180,14 +138,51 @@ public class ServerRunner : MonoBehaviour
         {
             if (serverProcess != null && !serverProcess.HasExited)
             {
+                serverProcess.OutputDataReceived -= OnOutputReceived;
+                serverProcess.ErrorDataReceived -= OnErrorReceived;
+
                 serverProcess.Kill();
                 serverProcess.WaitForExit(1000);
                 UnityEngine.Debug.Log("Server stopped");
             }
+
+            serverProcess?.Dispose(); // <--- Important!
+            serverProcess = null;
         }
         catch (System.Exception e)
         {
             UnityEngine.Debug.LogError($"Error stopping server: {e.Message}");
+        }
+    }
+
+
+    void OnApplicationQuit()
+    {
+        StopServer();
+    }
+
+    public static bool IsRunning => instance != null && instance.serverProcess != null && !instance.serverProcess.HasExited;
+
+    void FreezePlayer(bool freeze)
+    {
+        var controller = player.GetComponent<PlayerController>();
+        if (controller != null)
+            controller.FreezePlayer(freeze);
+    }
+    void OnOutputReceived(object sender, DataReceivedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.Data))
+        {
+            UnityEngine.Debug.Log($"[Server STDOUT] {e.Data}");
+            if (e.Data.Contains("Running on")) serverReady = true;
+        }
+    }
+
+    void OnErrorReceived(object sender, DataReceivedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(e.Data))
+        {
+            UnityEngine.Debug.LogError($"[Server Error] {e.Data}");
         }
     }
 }

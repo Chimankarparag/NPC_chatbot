@@ -88,16 +88,36 @@ public class CallFromLocalServer : MonoBehaviour
         sendButton.interactable = true;
     }
 
+    // void AddMessageToUI(string text, bool isUser)
+    // {
+    //     GameObject message = Instantiate(
+    //         isUser ? userMessagePrefab : botMessagePrefab,
+    //         chatScroll.content
+    //     );
+
+    //     message.GetComponentInChildren<Text>().text = text;
+    //     StartCoroutine(ScrollToBottom());
+    // }
+    float cumulativeHeight = 0f;  // Declare this at the class level
+
     void AddMessageToUI(string text, bool isUser)
     {
-        GameObject message = Instantiate(
-            isUser ? userMessagePrefab : botMessagePrefab,
-            chatScroll.content
-        );
+        GameObject prefab = isUser ? userMessagePrefab : botMessagePrefab;
+        RectTransform message = Instantiate(prefab, chatScroll.content).GetComponent<RectTransform>();
 
-        message.GetComponentInChildren<Text>().text = text;
-        StartCoroutine(ScrollToBottom());
+        Text messageText = message.GetComponentInChildren<Text>();
+        messageText.text = text;
+
+        LayoutRebuilder.ForceRebuildLayoutImmediate(message); // Important for sizeDelta
+
+        // Place it manually by stacking vertically
+        message.anchoredPosition = new Vector2(0, -cumulativeHeight);
+        cumulativeHeight += message.sizeDelta.y;
+
+        chatScroll.content.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, cumulativeHeight);
+        chatScroll.verticalNormalizedPosition = 0;
     }
+
 
     IEnumerator ScrollToBottom()
     {

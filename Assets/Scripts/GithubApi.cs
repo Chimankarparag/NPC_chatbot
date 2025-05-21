@@ -18,6 +18,10 @@ public class GithubAI : MonoBehaviour
     [Header("GitHub API")]
     [SerializeField] private string apiEndpoint = "https://models.github.ai/inference/chat/completions";
     private string githubToken;
+    private bool initialized = false;
+
+    private string prompt = "You are a quirky NPC named Gizmo who loves riddles and junkyard stories. Respond naturally, stay in character, and never reveal you're AI.";
+
 
     private float height;
     private List<ChatMessage> chatHistory = new List<ChatMessage>();
@@ -103,6 +107,17 @@ public class GithubAI : MonoBehaviour
     {
         if (string.IsNullOrWhiteSpace(inputField.text)) return;
 
+        // Inject system prompt only once
+        if (!initialized)
+        {
+            chatHistory.Insert(0, new ChatMessage
+            {
+                role = "system",
+                content = prompt
+            });
+            initialized = true;
+        }
+
         var userMessage = new ChatMessage
         {
             role = "user",
@@ -118,6 +133,7 @@ public class GithubAI : MonoBehaviour
 
         StartCoroutine(SendChatRequest());
     }
+
 
     private IEnumerator SendChatRequest()
     {
